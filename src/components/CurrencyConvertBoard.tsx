@@ -1,20 +1,30 @@
 'use client';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/style';
 import { Card } from './Card';
-import { CurrencySelector, type CurrencyOption } from './CurrencySelector';
+import { CurrencySelector } from './CurrencySelector';
 
 import { useEffect, useState } from 'react';
 import { getCurrencies, getLatestCurrencyRates } from '@/lib/api/currency';
 import useSWR from 'swr';
 import { CURRENCY_RATE_SWR_CACHE_TTL } from '@/constants/cache';
+import {
+  formatCurrency,
+  getCurrencyTranslatedName,
+  parseToNumber,
+  formatToCurrencyTextInput,
+} from '@/lib/utils/currencies';
+import { shouldAcceptAsNumber } from '@/lib/utils/inputs';
 
 export const CurrencyConvertBoard = ({ className }: { className?: string }) => {
-  const { data } = useSWR('currencies', getCurrencies);
+  const { data: currencies } = useSWR('currencies', getCurrencies);
   const [baseCurrency, setBaseCurrency] = useState('PLN');
   const [targetCurrency, setTargetCurrency] = useState('EUR');
-  const [baseValue, setBaseValue] = useState('');
-  const [targetValue, setTargetValue] = useState('');
-  const [lastEditedField, setLastEditedField] = useState<'base' | 'target'>('base');
+  const [values, setValues] = useState({
+    base: '',
+    target: '',
+  });
+
+  const [baseRate, setBaseRate] = useState(0);
 
   const { data: latestRates } = useSWR(
     [baseCurrency, targetCurrency],
@@ -29,54 +39,69 @@ export const CurrencyConvertBoard = ({ className }: { className?: string }) => {
 
     const rate = latestRates.rates[targetCurrency];
 
-    if (lastEditedField === 'base' && !!baseValue) {
-      setTargetValue((Number(baseValue) * rate).toFixed(2));
-    } else if (lastEditedField === 'target' && !!targetValue) {
-      setBaseValue((Number(targetValue) / rate).toFixed(2));
-    }
-  }, [latestRates, baseValue, targetValue, lastEditedField, targetCurrency]);
+    setValues((prev) => ({
+      ...prev,
+      target: formatToCurrencyTextInput(parseToNumber(prev.base) * rate),
+    }));
+    setBaseRate(rate);
+  }, [latestRates]);
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
-    if (isNaN(Number(value))) {
-      return;
-    }
-    if (value === '') {
-      setBaseValue('');
-      setTargetValue('');
+    if (!shouldAcceptAsNumber(value)) {
       return;
     }
 
-    setLastEditedField(name as 'base' | 'target');
-    if (name === 'base') {
-      setBaseValue(value);
+    if (!value) {
+      setValues({
+        base: '',
+        target: '',
+      });
       return;
     }
-    setTargetValue(value);
+
+    let fieldToSet: { base?: string; target?: string } = {};
+    try {
+      fieldToSet =
+        name === 'base'
+          ? { target: formatToCurrencyTextInput(parseToNumber(value) * baseRate) }
+          : { base: formatToCurrencyTextInput(parseToNumber(value) / baseRate) };
+    } catch (error) {
+      console.error(error);
+    }
+    setValues((prev) => ({ ...prev, [name]: value, ...fieldToSet }));
   };
-
-  const currencyOptions: CurrencyOption[] = data || [];
 
   return (
     <div className={cn('mx-auto my-[25%]', className)}>
-      <Card className="w-full md:w-[500px] p-10 grid grid-rows-2 gap-8">
+      <Card className="w-full md:w-[500px] p-10 flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <div className="text-sm text-muted-foreground">
+            1 <span className="capitalize">{getCurrencyTranslatedName(baseCurrency)}</span> to w
+            przeliczeniu
+          </div>
+          <div className="text-2xl capitalize font-bold">
+            {formatCurrency({ currency: targetCurrency, value: Number(baseRate) })}
+          </div>
+        </div>
+
         <CurrencySelector
-          value={baseValue}
+          value={values.base}
           onValueChange={handleValueChange}
           selectedCurrency={baseCurrency}
           onCurrencyChange={setBaseCurrency}
-          currencyOptions={currencyOptions}
+          currencyOptions={currencies || []}
           inputName="base"
           placeholder="0"
         />
 
         <CurrencySelector
-          value={targetValue}
+          value={values.target}
           onValueChange={handleValueChange}
           selectedCurrency={targetCurrency}
           onCurrencyChange={setTargetCurrency}
-          currencyOptions={currencyOptions}
+          currencyOptions={currencies || []}
           inputName="target"
           placeholder="0"
         />

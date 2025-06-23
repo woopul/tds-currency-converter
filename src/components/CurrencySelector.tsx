@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/style';
 import { Input } from './Input';
 import {
   Select,
@@ -55,8 +55,7 @@ export const CurrencySelector = React.forwardRef<HTMLInputElement, CurrencySelec
       <div className={cn('flex', className)}>
         <Input
           ref={ref}
-          className={cn('w-1/2 rounded-r-none border-r-zinc-200', inputClassName)}
-          type="number"
+          className={cn('w-1/2 py-5 rounded-r-none border-r-zinc-200', inputClassName)}
           placeholder={placeholder}
           name={inputName}
           value={value}
@@ -67,7 +66,10 @@ export const CurrencySelector = React.forwardRef<HTMLInputElement, CurrencySelec
         />
         <Select value={selectedCurrency} onValueChange={onCurrencyChange} disabled={disabled}>
           <SelectTrigger
-            className={cn('w-1/2 gap-4 rounded-l-none border-l-0 justify-end', selectClassName)}
+            className={cn(
+              'w-1/2 py-5 gap-4 rounded-l-none border-l-0 justify-end',
+              selectClassName,
+            )}
           >
             <SelectValue placeholder="Select Currency" />
           </SelectTrigger>
